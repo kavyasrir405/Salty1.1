@@ -123,34 +123,25 @@ def group_list(request):
         if user.is_admin:
             groups = Group.objects.all()
         else:
-            # Groups where the user is group head
+            # Retrieve groups where the email matches the group head
             groups_head = Group.objects.filter(group_head=email)
-            
-            # Groups where the user is a direct group member
-            groups_member = GroupMember.objects.filter(member_email=email).values_list('group', flat=True)
-            
-            # Groups where the user is a team member in any project
-            projects = Project_TeamMember.objects.filter(team_member_email=email).values_list('project__group', flat=True)
-
-            # Combine all groups and remove duplicates
-            all_groups = Group.objects.filter(
-                pk__in=set(groups_head.values_list('id', flat=True)) | set(groups_member) | set(projects)
-            )
-
-        # Create response data
+            # Retrieve groups where the email matches a group member
+            groups_member = GroupMember.objects.filter(member_email=email).values('group')
+            # Combine both lists of groups
+            groups = list(groups_head) + list(Group.objects.filter(pk__in=groups_member))
+        
+        # Create a list of group data including group head information
         group_data = [
             {
                 'group_id': group.group_id,
                 'group_name': group.group_name,
                 'group_head': group.group_head
             } 
-            for group in all_groups
+            for group in groups
         ]
-        
         return JsonResponse(group_data, safe=False)
-    
-    return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
-
+    else:
+        return JsonResponse({'error': 'Only GET requests are allowed'}, status=405)
 
 
 
